@@ -22,15 +22,23 @@ This document provides comprehensive guidelines for development in the AI LSP pr
 This project uses Python 3.12+ with Poetry for dependency management.
 
 ```bash
-# Install dependencies
+# Activate virtual environment (if not already activated)
+source .venv/bin/activate
+
+# Install dependencies and project
 poetry install
 
-# Activate virtual environment
-poetry shell
-
 # Run the LSP server
-python main.py
+poetry run ai-lsp
+
+# Alternative: Run directly
+python -m ai_lsp.main
+
+# Or run in background
+poetry run ai-lsp &
 ```
+
+**Note:** The virtual environment is located in `.venv/` and should be activated before running any Poetry commands.
 
 ## Build Commands
 
@@ -191,44 +199,42 @@ from lsp.capabilities import register_capabilities
 
 ## Architecture Guidelines
 
+### Project Structure
+
+```
+ai_lsp/
+├── ai_lsp/                    # Main package
+│   ├── __init__.py
+│   ├── main.py               # Entry point
+│   ├── lsp/                  # LSP protocol layer
+│   │   ├── __init__.py
+│   │   ├── server.py         # pygls setup
+│   │   ├── capabilities.py   # LSP handlers
+│   │   └── documents.py      # Text tracking
+│   ├── domain/               # Business logic layer
+│   │   ├── __init__.py
+│   │   ├── completion.py     # Completion models
+│   │   └── context.py        # Context models
+│   ├── agents/               # Reasoning agents layer
+│   │   ├── __init__.py
+│   │   ├── base.py           # Agent interfaces
+│   │   ├── completion_agent.py
+│   │   └── context_agent.py
+│   └── ai/                   # AI integration layer
+│       ├── __init__.py
+│       ├── engine.py         # AI interface/port
+│       ├── ollama_client.py  # Ollama adapter
+│       └── prompts/          # Prompt templates
+│           └── completion.md
+├── pyproject.toml           # Project configuration
+├── README.md               # Project documentation
+├── AGENTS.md              # Development guidelines
+└── poetry.lock            # Dependency lock file
+```
+
 ### Clean Architecture Layers
 
 This project follows clean architecture principles with strict separation of concerns:
-
-```
-┌─────────────────────────────────────┐
-│           LSP Layer                 │
-│  - server.py (pygls setup)          │
-│  - capabilities.py (handlers)       │
-│  - documents.py (text tracking)     │
-└─────────────────────────────────────┘
-                   │
-          internal API boundary
-                   │
-┌─────────────────────────────────────┐
-│         Domain Layer                │
-│  - completion.py (business logic)   │
-│  - context.py (data models)         │
-└─────────────────────────────────────┘
-                   │
-          internal API boundary
-                   │
-┌─────────────────────────────────────┐
-│         Agents Layer                │
-│  - base.py (agent interface)        │
-│  - completion_agent.py              │
-│  - context_agent.py                 │
-└─────────────────────────────────────┘
-                   │
-          internal API boundary
-                   │
-┌─────────────────────────────────────┐
-│           AI Layer                  │
-│  - engine.py (AI interface/port)    │
-│  - ollama_client.py (adapter)       │
-│  - prompts/ (prompt templates)      │
-└─────────────────────────────────────┘
-```
 
 ### Key Architectural Rules
 

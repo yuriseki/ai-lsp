@@ -7,6 +7,7 @@ from lsprotocol.types import (
 )
 from lsprotocol import types
 
+from ai_lsp.lsp.documents import DocumentStore
 
 def register_capabilities(server: LanguageServer):
     @server.feature(
