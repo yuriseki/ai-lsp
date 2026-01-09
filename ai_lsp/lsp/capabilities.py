@@ -1,20 +1,22 @@
-from pygls.lsp.server import LanguageServer
+from lsprotocol import types
 from lsprotocol.types import (
-    CompletionList,
     CompletionItem,
     CompletionItemKind,
+    CompletionList,
     CompletionOptions,
 )
-from lsprotocol import types
+from pygls.lsp.server import LanguageServer
 
+from ai_lsp.lsp.context_builder import CompletionContextBuilder
 from ai_lsp.lsp.documents import DocumentStore
 
 
 def register_capabilities(server: LanguageServer):
     documents = DocumentStore()
+    context_builder = CompletionContextBuilder()
 
     register_documents(server, documents)
-    register_completion(server, documents)
+    register_completion(server, documents, context_builder)
 
 
 def register_documents(server: LanguageServer, documents: DocumentStore):
@@ -24,39 +26,39 @@ def register_documents(server: LanguageServer, documents: DocumentStore):
 
     @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls: LanguageServer, params: types.DidChangeTextDocumentParams):
-        documents.update(params)
+        documents.update(params, ls)
 
 
-def register_completion(server: LanguageServer, documents: DocumentStore):
+def register_completion(
+    server: LanguageServer,
+    documents: DocumentStore,
+    context_builder: CompletionContextBuilder,
+):
     @server.feature(
         types.TEXT_DOCUMENT_COMPLETION,
-        CompletionOptions(trigger_characters=[".", ":"], resolve_provider=False),
+        CompletionOptions(trigger_characters=[".", ":", "a"], resolve_provider=False),
     )
     def on_completion(ls: LanguageServer, params: types.CompletionParams):
         uri = params.text_document.uri
-        position = params.position
-
         document = documents.get(uri)
+
         if not document:
             return CompletionList(is_incomplete=False, items=[])
 
-        # Extract current line
-        lines = document.text.splitlines()
-        line_index = min(position.line, len(lines) - 1)
-        full_line = lines[line_index]
-        char_index = min(position.character, len(full_line))
-        prefix = full_line[:char_index]
+        context = context_builder.build(document, params.position)
 
         items = [
             CompletionItem(
-                label="hello_word",
-                kind=CompletionItemKind.Text,
-                detail=f"Line: {prefix}",
+                label="debug_prefix",
+                detail="debug_prefix:" + context.prefix,
             ),
             CompletionItem(
-                label="hello_ai",
-                kind=CompletionItemKind.Text,
-                detail=f"Lang: {document.language_id}",
+                label="debug_ident",
+                detail="debug_ident:" + repr(context.identation),
+            ),
+            CompletionItem(
+                label="debug_prev_lines",
+                detail="debug_prev_lines:" + str(len(context.previous_lines)),
             ),
         ]
 

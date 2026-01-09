@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict
 from lsprotocol import types
+from pygls.lsp.server import LanguageServer
 
 
 @dataclass
@@ -24,16 +25,17 @@ class DocumentStore:
             text=doc.text,
         )
 
-    def update(self, params: types.DidChangeTextDocumentParams) -> None:
+    def update(
+        self, params: types.DidChangeTextDocumentParams, ls: LanguageServer
+    ) -> None:
         uri = params.text_document.uri
+        text_doc = ls.workspace.get_text_document(uri)
         document = self._documents.get(uri)
 
         if not document:
             return
 
-        for change in params.content_changes:
-            document.text = change.text
-
+        document.text = text_doc.source
         document.version = params.text_document.version
 
     def get(self, uri: str) -> Document | None:
