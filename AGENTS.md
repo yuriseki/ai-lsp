@@ -28,11 +28,23 @@ source .venv/bin/activate
 # Install dependencies and project
 poetry install
 
+# Install dev dependencies for debugging
+poetry install --with dev
+
 # Run the LSP server
 poetry run ai-lsp
 
 # Alternative: Run directly
 python -m ai_lsp.main
+
+# Debug mode: Run with debugpy (requires Neovim DAP attachment)
+DEBUG_AI_LSP=1 python -m ai_lsp.main
+
+# Development mode with auto-reload (recommended for development)
+python dev_server.py
+
+# Development mode with debugpy
+python dev_server.py --debug
 
 # Or run in background
 poetry run ai-lsp &
@@ -147,6 +159,60 @@ black --check . && isort --check-only . && ruff check . && mypy .
 # Auto-fix everything possible
 black . && isort . && ruff check --fix .
 ```
+
+## Debugging
+
+### Debug the LSP Server
+
+The AI LSP server can be debugged using Python's debugpy and Neovim DAP.
+
+#### Setup
+```bash
+# Install debug dependencies
+poetry install --with dev
+
+# Start server in debug mode (waits for debugger attachment)
+DEBUG_AI_LSP=1 python -m ai_lsp.main
+```
+
+#### In Neovim
+1. Open any Python file in your project
+2. Use `:DapContinue` or your DAP UI to attach to the LSP server
+3. Select "Python: Attach to AI LSP" configuration
+4. Set breakpoints in your LSP server code
+5. The server will pause when breakpoints are hit
+
+### Debug Commands
+```vim
+:DapContinue          " Start/continue debugging
+:DapStepOver          " Step over
+:DapStepInto          " Step into
+:DapStepOut           " Step out
+:DapToggleBreakpoint  " Toggle breakpoint
+:DapTerminate         " Stop debugging
+```
+
+### Development Server with Auto-Reload
+
+The development server automatically restarts when you modify Python or Markdown files:
+
+```bash
+# Basic development mode (auto-reload)
+python dev_server.py
+
+# Debug mode with auto-reload (for DAP debugging)
+python dev_server.py --debug
+
+# Manual restart (if needed)
+# Modify any .py or .md file in ai_lsp/ directory
+```
+
+**Features:**
+- 🔄 Auto-restarts on file changes
+- 📝 Watches `.py` and `.md` files
+- 🐛 Supports debug mode for DAP
+- 📊 Shows LSP server output
+- 🛑 Graceful shutdown with Ctrl+C
 
 ## Code Style Guidelines
 

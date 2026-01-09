@@ -12,6 +12,10 @@ dependencies = [
     "ollama (>=0.6.1,<0.7.0)",
 ]
 
+[tool.poetry.group.dev.dependencies]
+debugpy = "^1.6.0"
+watchdog = "^4.0.0"
+
 [project.scripts]
 ai-lsp = "ai_lsp.main:main"
 

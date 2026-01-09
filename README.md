@@ -24,6 +24,12 @@ poetry run ai-lsp
 # Alternative: Run directly
 python -m ai_lsp.main
 
+# Development mode with auto-reload (recommended for development)
+python dev_server.py
+
+# Development mode with debugpy
+python dev_server.py --debug
+
 # Or run in background
 poetry run ai-lsp &
 ```
