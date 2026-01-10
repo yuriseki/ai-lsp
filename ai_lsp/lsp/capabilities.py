@@ -4,7 +4,6 @@ from lsprotocol.types import (
     CompletionItemKind,
     CompletionList,
     CompletionOptions,
-    InsertTextMode,
     LogMessageParams,
     MessageType,
     Position,
@@ -13,12 +12,12 @@ from lsprotocol.types import (
 )
 from pygls.lsp.server import LanguageServer
 
-from ai_lsp.ai import engine
 from ai_lsp.domain.completion import CompletionContext
 from ai_lsp.ai.ollama_client import OllamaCOmpletionEngine
-from ai_lsp.domain import completion
 from ai_lsp.lsp.context_builder import CompletionContextBuilder
 from ai_lsp.lsp.documents import DocumentStore
+import asyncio
+from typing import Dict
 
 
 def register_capabilities(server: LanguageServer):
@@ -40,7 +39,9 @@ def register_documents(server: LanguageServer, documents: DocumentStore):
         documents.update(params, ls)
 
 
-def _calculate_replacement_range(context: CompletionContext, position: Position, completion: str) -> Range | None:
+def _calculate_replacement_range(
+    context: CompletionContext, position: Position, completion: str
+) -> Range | None:
     """
     Calculate the text range that should be replaced by the completion.
 
@@ -59,13 +60,13 @@ def _calculate_replacement_range(context: CompletionContext, position: Position,
     # This works well for most AI completion scenarios
     prefix = context.prefix.rstrip()
 
-    if completion.startswith(prefix):
+    if completion.strip().startswith(prefix.strip()):
         # Replace from start of prefix to cursor
         start_char = position.character - len(prefix)
         if start_char >= 0:
             return Range(
                 start=Position(line=position.line, character=start_char),
-                end=Position(line=position.line, character=position.character)
+                end=Position(line=position.line, character=position.character),
             )
 
     return None
@@ -77,11 +78,15 @@ def register_completion(
     context_builder: CompletionContextBuilder,
     engine: OllamaCOmpletionEngine,
 ):
+    active_tasks: Dict[str, asyncio.Task] = {}
+
     @server.feature(
         types.TEXT_DOCUMENT_COMPLETION,
-        CompletionOptions(trigger_characters=[".", ":", "(", '"', "'"], resolve_provider=False),
+        CompletionOptions(
+            trigger_characters=[".", ":", "(", '"', "'"], resolve_provider=False
+        ),
     )
-    def on_completion(ls: LanguageServer, params: types.CompletionParams):
+    async def on_completion(ls: LanguageServer, params: types.CompletionParams):
         uri = params.text_document.uri
         document = documents.get(uri)
 
@@ -90,8 +95,25 @@ def register_completion(
 
         context = context_builder.build(document, params.position)
 
+        # Guard: avoid LLM spam
+        if len(context.prefix.strip()) < 2:
+            return CompletionList(is_incomplete=True, items=[])
+
+        # Cancel previous task for this document.
+        previsous_task = active_tasks.get(uri)
+        if previsous_task and not previsous_task.done():
+            previsous_task.cancel()
+
+        async def run_completion():
+            return await engine.complete(context)
+
+        task = asyncio.create_task(run_completion())
+        active_tasks[uri] = task
+
         try:
-            completion = engine.complete(context)
+            completion = await task
+        except asyncio.CancelledError:
+            return CompletionList(is_incomplete=True, items=[])
         except Exception as e:
             message = LogMessageParams(
                 type=MessageType.Error, message=f"Ollama error: {e}"
@@ -104,7 +126,9 @@ def register_completion(
             return CompletionList(is_incomplete=False, items=[])
 
         # Calculate intelligent replacement range
-        replacement_range = _calculate_replacement_range(context, params.position, completion)
+        replacement_range = _calculate_replacement_range(
+            context, params.position, completion
+        )
 
         if replacement_range:
             # Use textEdit for precise multi-line replacement
@@ -114,10 +138,7 @@ def register_completion(
                 detail="AI_LSP\n" + completion.strip(),
                 sort_text="000",
                 preselect=True,
-                text_edit=TextEdit(
-                    range=replacement_range,
-                    new_text=completion
-                )
+                text_edit=TextEdit(range=replacement_range, new_text=completion),
             )
         else:
             # Fallback to simple insert

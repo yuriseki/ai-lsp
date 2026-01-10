@@ -1,3 +1,4 @@
+import asyncio
 import requests
 import re
 from ai_lsp.ai.engine import CompletionEngine
@@ -15,7 +16,10 @@ class OllamaCOmpletionEngine(CompletionEngine):
         self.base_url = base_url
         self.timeout = timeout
 
-    def complete(self, context: CompletionContext) -> str:
+    async def complete(self, context: CompletionContext) -> str:
+        return await asyncio.to_thread(self._blocking_complete, context)
+
+    def _blocking_complete(self, context: CompletionContext) -> str:
         prompt = self._build_prompt(context)
 
         response = requests.post(
@@ -27,7 +31,7 @@ class OllamaCOmpletionEngine(CompletionEngine):
                 "options": {
                     "temperature": 0,
                     "seed": 42,
-                    "num_predict": 640,
+                    "num_predict": 128,
                 },
             },
             timeout=self.timeout,
@@ -38,16 +42,11 @@ class OllamaCOmpletionEngine(CompletionEngine):
 
         result = data.get("response", "").strip()
 
-        # Debug: log context and raw result
-        print(f"DEBUG: Context prefix: {repr(context.prefix)}")
-        if result:
-            print(f"DEBUG: Raw completion result: {repr(result)}")
-
         # Clean up the result: remove markdown code blocks, normalize whitespace, and remove prefix duplication
         result = self._clean_completion_result(result, context)
 
         # Adjust indentation for multi-line completions
-        result = self._adjust_completion_indentation(result, context)
+        # result = self._adjust_completion_indentation(result, context)
 
         return result
 
@@ -94,27 +93,27 @@ Completion (just the code):
         text = re.sub(r"```", "", text)
 
         # Step 2: Remove duplicated prefix text
-        if context.prefix:
-            # Get the prefix without trailing whitespace for comparison
-            prefix_clean = context.prefix.rstrip()
-            prefix_no_indent = prefix_clean.lstrip()
-
-            # Check various ways the prefix might appear in the completion
-            if text.startswith(context.prefix):
-                # Exact match with indentation
-                text = text[len(context.prefix) :]
-            elif text.startswith(prefix_clean):
-                # Match without trailing whitespace
-                text = text[len(prefix_clean) :]
-            elif text.startswith(prefix_no_indent):
-                # LLM stripped indentation from the prefix
-                text = text[len(prefix_no_indent) :]
-            elif context.identation and text.startswith(
-                context.identation + prefix_no_indent
-            ):
-                # LLM used different indentation
-                indented_prefix = context.identation + prefix_no_indent
-                text = text[len(indented_prefix) :]
+        # if context.prefix:
+        #     # Get the prefix without trailing whitespace for comparison
+        #     prefix_clean = context.prefix.rstrip()
+        #     prefix_no_indent = prefix_clean.lstrip()
+        #
+        #     # Check various ways the prefix might appear in the completion
+        #     if text.startswith(context.prefix):
+        #         # Exact match with indentation
+        #         text = text[len(context.prefix) :]
+        #     elif text.startswith(prefix_clean):
+        #         # Match without trailing whitespace
+        #         text = text[len(prefix_clean) :]
+        #     elif text.startswith(prefix_no_indent):
+        #         # LLM stripped indentation from the prefix
+        #         text = text[len(prefix_no_indent) :]
+        #     elif context.identation and text.startswith(
+        #         context.identation + prefix_no_indent
+        #     ):
+        #         # LLM used different indentation
+        #         indented_prefix = context.identation + prefix_no_indent
+        #         text = text[len(indented_prefix) :]
 
         # Step 3: Skip whitespace normalization for code (preserve structure)
         # Code indentation and newlines are important for proper formatting
@@ -125,13 +124,15 @@ Completion (just the code):
 
         return text
 
-    def _adjust_completion_indentation(self, text: str, context: CompletionContext) -> str:
+    def _adjust_completion_indentation(
+        self, text: str, context: CompletionContext
+    ) -> str:
         """
         Adjust indentation for multi-line completions to match the current line's indentation.
 
         For multi-line completions, adds the current line's indentation to continuation lines.
         """
-        if not text or '\n' not in text:
+        if not text or "\n" not in text:
             return text
 
         # Get current line indentation
@@ -141,7 +142,7 @@ Completion (just the code):
             return text
 
         # Split into lines
-        lines = text.split('\n')
+        lines = text.split("\n")
 
         # First line keeps original indentation (if any)
         # Continuation lines get current line indentation added
@@ -151,4 +152,4 @@ Completion (just the code):
             # Add current indentation to continuation lines
             adjusted_lines.append(current_indent + line)
 
-        return '\n'.join(adjusted_lines)
+        return "\n".join(adjusted_lines)
