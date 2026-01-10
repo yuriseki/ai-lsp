@@ -9,8 +9,9 @@ from ai_lsp.agents.base import CompletionAgent
 from ai_lsp.agents.context import ContextPruningAgent
 from ai_lsp.agents.guard import OutputGuardAgent
 from ai_lsp.agents.intent import CompletionIntentAgent
+from ai_lsp.agents.prefix_alignment import PrefixAlignmentAgent
 from ai_lsp.ai.engine import CompletionEngine
-from ai_lsp.ai.sanitize import sanitize_completion, strip_duplicate_prefix
+from ai_lsp.ai.sanitize import sanitize_completion
 from ai_lsp.domain.completion import CompletionContext
 
 
@@ -29,6 +30,7 @@ class OllamaCompletionEngine(CompletionEngine):
         self.agents = agents or [
             CompletionIntentAgent(),
             ContextPruningAgent(),
+            PrefixAlignmentAgent(),
             OutputGuardAgent(),
         ]
 
@@ -83,20 +85,14 @@ class OllamaCompletionEngine(CompletionEngine):
         return self._finalize(context, final)
 
     def _finalize(self, context: CompletionContext, text: str) -> Optional[str]:
+        text = sanitize_completion(text).strip()
         for agent in self.agents:
             result = agent.after_generation(context, text)
             if result is None:
                 return None
             text = result
 
-            clean = sanitize_completion(text).strip()
-            clean = strip_duplicate_prefix(
-                current_line=context.current_line,
-                prefix=context.prefix,
-                completion=clean,
-            )
-
-            return clean.strip()
+        return text.strip()
 
     def _build_prompt(self, context: CompletionContext) -> str:
         previous = "\n".join(context.previous_lines)

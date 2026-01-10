@@ -18,7 +18,6 @@ class AgentDecision:
         self.stop_generation = stop_generation
 
 class CompletionAgent(ABC):
-    @abstractmethod
     def before_generation(
         self,
         context: CompletionContext,
