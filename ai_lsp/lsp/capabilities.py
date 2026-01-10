@@ -13,7 +13,7 @@ from lsprotocol.types import (
 from pygls.lsp.server import LanguageServer
 
 from ai_lsp.domain.completion import CompletionContext
-from ai_lsp.ai.ollama_client import OllamaCOmpletionEngine
+from ai_lsp.ai.ollama_client import OllamaCompletionEngine
 from ai_lsp.lsp.context_builder import CompletionContextBuilder
 from ai_lsp.lsp.documents import DocumentStore
 import asyncio
@@ -52,7 +52,7 @@ def make_inline_edit(
 def register_capabilities(server: LanguageServer):
     documents = DocumentStore()
     context_builder = CompletionContextBuilder()
-    engine = OllamaCOmpletionEngine()
+    engine = OllamaCompletionEngine()
 
     register_documents(server, documents)
     register_completion(server, documents, context_builder, engine)
@@ -72,7 +72,7 @@ def register_completion(
     server: LanguageServer,
     documents: DocumentStore,
     context_builder: CompletionContextBuilder,
-    engine: OllamaCOmpletionEngine,
+    engine: OllamaCompletionEngine,
 ):
     active_tasks: Dict[str, asyncio.Task] = {}
 

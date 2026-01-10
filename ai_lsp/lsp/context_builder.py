@@ -22,7 +22,7 @@ class CompletionContextBuilder:
         char_index = min(position.character, len(full_line))
         prefix = full_line[:char_index]
 
-        identation = self._extract_identation(full_line)
+        indentation = self._extract_indentation(full_line)
 
         previous_lines = lines[max(0, line_index - self.max_lines) : line_index]
         next_lines = lines[line_index + 1 : line_index + 1 + self.max_lines]
@@ -34,12 +34,12 @@ class CompletionContextBuilder:
             current_line=full_line,
             previous_lines=previous_lines,
             next_lines=next_lines,
-            identation=identation,
+            indentation=indentation,
             line=position.line,
             character=position.character,
         )
 
-    def _extract_identation(self, line: str) -> str:
+    def _extract_indentation(self, line: str) -> str:
         match = re.match(r"^\s*", line)
         return match.group(0) if match else ""
 

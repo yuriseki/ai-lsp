@@ -1,26 +1,45 @@
 import asyncio
-import requests
 import json
+from typing import Optional
+
+import requests
+
+from ai_lsp.agents.base import CompletionAgent
+from ai_lsp.agents.context import ContextPruningAgent
+from ai_lsp.agents.guard import OutputGuardAgent
+from ai_lsp.agents.intent import CompletionIntentAgent
 from ai_lsp.ai.engine import CompletionEngine
-from ai_lsp.domain.completion import CompletionContext
 from ai_lsp.ai.sanitize import sanitize_completion
+from ai_lsp.domain.completion import CompletionContext
 
 
-class OllamaCOmpletionEngine(CompletionEngine):
+class OllamaCompletionEngine(CompletionEngine):
     def __init__(
         self,
         model: str = "codellama:7b",
         base_url: str = "http://localhost:11434",
         timeout: int = 10,
+        agents: list[CompletionAgent] | None = None,
     ):
         self.model = model
         self.base_url = base_url
         self.timeout = timeout
 
-    async def complete(self, context: CompletionContext) -> str:
+        self.agents = agents or [
+            CompletionIntentAgent(),
+            ContextPruningAgent(),
+            OutputGuardAgent(),
+        ]
+
+    async def complete(self, context: CompletionContext) -> Optional[str]:
+        for agent in self.agents:
+            decision = agent.before_generation(context)
+            if not decision.allowed:
+                return None
+
         return await asyncio.to_thread(self._blocking_complete, context)
 
-    def _blocking_complete(self, context: CompletionContext) -> str:
+    def _blocking_complete(self, context: CompletionContext) -> Optional[str]:
         prompt = self._build_prompt(context)
 
         response = requests.post(
@@ -28,9 +47,8 @@ class OllamaCOmpletionEngine(CompletionEngine):
             json={
                 "model": self.model,
                 "prompt": prompt,
-                "stream": False,
+                "stream": True,
                 "options": {
-                    "stream": True,
                     "temperature": 0,
                     "seed": 42,
                     "num_predict": 128,
@@ -40,17 +58,37 @@ class OllamaCOmpletionEngine(CompletionEngine):
             timeout=self.timeout,
         )
 
-        text = ""
+        buffer: list[str] = []
         for line in response.iter_lines():
             if not line:
                 continue
             data = json.loads(line)
-            if "response" in data:
-                text += data["response"]
+            token = data.get("response")
+            if not token:
+                continue
 
-        clean_text = sanitize_completion(text)
+            for agent in self.agents:
+                decision = agent.on_token(token)
+                if decision and decision.stop_generation:
+                    final = "".join(buffer)
+                    return self._finalize(context, final)
 
-        return clean_text.strip()
+            buffer.append(token)
+
+            if data.get("done"):
+                break
+
+        final = "".join(buffer)
+        return self._finalize(context, final)
+
+    def _finalize(self, context: CompletionContext, text: str) -> Optional[str]:
+        for agent in self.agents:
+            result = agent.after_generation(context, text)
+            if result is None:
+                return None
+            text = result
+
+            return sanitize_completion(text).strip()
 
     def _build_prompt(self, context: CompletionContext) -> str:
         previous = "\n".join(context.previous_lines)

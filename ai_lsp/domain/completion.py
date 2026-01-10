@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-@dataclass(frozen=True)
+@dataclass
 class CompletionContext:
     language: str
     file_path: str
@@ -9,6 +9,6 @@ class CompletionContext:
     current_line: str
     previous_lines: List[str]
     next_lines: List[str]
-    identation: str
+    indentation: str
     line: int
     character: int

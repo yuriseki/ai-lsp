@@ -26,3 +26,4 @@ class Polygon:
 class Dog:
     def  __init__(self, name: str, race: str, age: int):
         STRICT
+
