@@ -4,9 +4,14 @@ from lsprotocol.types import (
     CompletionItemKind,
     CompletionList,
     CompletionOptions,
+    LogMessageParams,
+    MessageType,
 )
 from pygls.lsp.server import LanguageServer
 
+from ai_lsp.ai import engine
+from ai_lsp.ai.ollama_client import OllamaCOmpletionEngine
+from ai_lsp.domain import completion
 from ai_lsp.lsp.context_builder import CompletionContextBuilder
 from ai_lsp.lsp.documents import DocumentStore
 
@@ -14,9 +19,10 @@ from ai_lsp.lsp.documents import DocumentStore
 def register_capabilities(server: LanguageServer):
     documents = DocumentStore()
     context_builder = CompletionContextBuilder()
+    engine = OllamaCOmpletionEngine()
 
     register_documents(server, documents)
-    register_completion(server, documents, context_builder)
+    register_completion(server, documents, context_builder, engine)
 
 
 def register_documents(server: LanguageServer, documents: DocumentStore):
@@ -33,10 +39,12 @@ def register_completion(
     server: LanguageServer,
     documents: DocumentStore,
     context_builder: CompletionContextBuilder,
+    engine: OllamaCOmpletionEngine,
 ):
     @server.feature(
         types.TEXT_DOCUMENT_COMPLETION,
-        CompletionOptions(trigger_characters=[".", ":", "a"], resolve_provider=False),
+        # CompletionOptions(trigger_characters=[".", ":"], resolve_provider=False),
+        CompletionOptions(trigger_characters=None, resolve_provider=False),
     )
     def on_completion(ls: LanguageServer, params: types.CompletionParams):
         uri = params.text_document.uri
@@ -47,19 +55,24 @@ def register_completion(
 
         context = context_builder.build(document, params.position)
 
-        items = [
-            CompletionItem(
-                label="debug_prefix",
-                detail="debug_prefix:" + context.prefix,
-            ),
-            CompletionItem(
-                label="debug_ident",
-                detail="debug_ident:" + repr(context.identation),
-            ),
-            CompletionItem(
-                label="debug_prev_lines",
-                detail="debug_prev_lines:" + str(len(context.previous_lines)),
-            ),
-        ]
+        try:
+            completion = engine.complete(context)
+        except Exception as e:
+            message = LogMessageParams(
+                type=MessageType.Error, message=f"Ollama error: {e}"
+            )
 
-        return CompletionList(is_incomplete=False, items=items)
+            ls.window_log_message(message)
+            return CompletionList(is_incomplete=False, items=[])
+
+        if not completion:
+            return CompletionList(is_incomplete=False, items=[])
+
+        item = CompletionItem(
+            label=completion.strip().splitlines()[0][:80],
+            insert_text=completion,
+            kind=CompletionItemKind.Text,
+            detail="AI_LSP",
+        )
+
+        return CompletionList(is_incomplete=False, items=[item])

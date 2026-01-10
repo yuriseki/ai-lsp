@@ -1,7 +1,12 @@
+class test:
+    print "Hello, it is a test"
 
-user.debug_ident
-    user.
+if __name__ == "__main__":
+  test()
 
-def.debug_prefix foo():
-    user.debug_ident a.debug_prefix
-    asd.debug_ident.debug_prefix upd.debug_prev_lines
+class class Hello(object):
+    def __init__(self, name):
+        self.name = name
+
+    def greet(self):
+        print("Hello, " + self.name)

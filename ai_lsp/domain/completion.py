@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 @dataclass(frozen=True)
-class CompletionContnext:
+class CompletionContext:
     language: str
     file_path: str
     prefix: str

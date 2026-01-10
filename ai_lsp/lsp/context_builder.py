@@ -1,4 +1,4 @@
-from ai_lsp.domain.completion import CompletionContnext
+from ai_lsp.domain.completion import CompletionContext
 from ai_lsp.lsp.documents import Document
 from lsprotocol import types
 import os
@@ -13,7 +13,7 @@ class CompletionContextBuilder:
         self,
         document: Document,
         position: types.Position,
-    ) -> CompletionContnext:
+    ) -> CompletionContext:
         lines = document.text.splitlines()
 
         line_index = min(position.line, len(lines) - 1)
@@ -27,7 +27,7 @@ class CompletionContextBuilder:
         previous_lines = lines[max(0, line_index - self.max_lines) : line_index]
         next_lines = lines[line_index + 1 : line_index + 1 + self.max_lines]
 
-        return CompletionContnext(
+        return CompletionContext(
             language=document.language_id,
             file_path=self._uri_to_path(document.uri),
             prefix=prefix,
