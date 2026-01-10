@@ -182,6 +182,61 @@ DEBUG_AI_LSP=1 python -m ai_lsp.main
 4. Set breakpoints in your LSP server code
 5. The server will pause when breakpoints are hit
 
+## Completion Processing
+
+The LSP server automatically processes AI completions to ensure they integrate properly with the editor:
+
+### Text Cleaning
+- **Markdown Removal**: Strips code block markers (````) and language tags
+- **Prefix Deduplication**: Removes text that duplicates what's already before the cursor
+- **Indentation Handling**: Handles cases where LLM uses different indentation than existing code
+- **Structure Preservation**: Maintains newlines and indentation for proper code formatting
+
+### Example Processing
+```
+Input:  '```python\n  def sum(a, b):\n    return a + b\n```'
+Prefix: '  def sum(a, b)'
+Output: ':\n    return a + b'
+```
+
+**Processing Example:**
+```
+Input:  'def sum(a, b):\n    return a + b'
+Prefix: '    def sum(a, b):'
+Output: '\n    return a + b'
+```
+
+### Indentation Handling
+The prefix removal logic intelligently handles indentation differences:
+- **Exact match**: Removes identical prefix text
+- **Indentation normalization**: Handles cases where LLM uses different indentation
+- **Smart deduplication**: Only removes prefix when it clearly duplicates existing text
+
+### Context-Aware Completion
+The LSP server provides intelligent completion based on cursor context:
+- **Normal text**: Standard prefix removal and insertion
+- **Prefix deduplication**: Removes text that already exists before cursor
+- **Ghost Text Support**: Completions appear as inline faded suggestions
+- **Trigger Characters**: Auto-complete on `.`, `:`, `(`, `"`, `'`
+
+### Ghost Text Configuration
+
+Completions appear as ghost text when configured in your editor:
+
+```lua
+-- In blink.cmp config
+completion = {
+  ghost_text = {
+    show_with_menu = true,
+    show_without_menu = true, -- Show even without completion menu
+  },
+  trigger = {
+    show_on_keyword = true,
+    show_on_trigger_character = true,
+  },
+}
+```
+
 ### Debug Commands
 ```vim
 :DapContinue          " Start/continue debugging

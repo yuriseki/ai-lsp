@@ -4,9 +4,22 @@ class test:
 if __name__ == "__main__":
   test()
 
-class class Hello(object):
+class Hello(object):
     def __init__(self, name):
         self.name = name
 
     def greet(self):
         print("Hello, " + self.name)
+
+class Calculator:
+    def sum(a, b):
+        return a + b
+
+    def subtraction(self, a, b):
+        return a - b
+
+    def multiply(self, s):
+    return self.sum(s, s)
+
+
+

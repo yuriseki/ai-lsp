@@ -4,8 +4,12 @@ from lsprotocol.types import (
     CompletionItemKind,
     CompletionList,
     CompletionOptions,
+    InsertTextMode,
     LogMessageParams,
     MessageType,
+    Position,
+    Range,
+    TextEdit,
 )
 from pygls.lsp.server import LanguageServer
 
@@ -43,8 +47,7 @@ def register_completion(
 ):
     @server.feature(
         types.TEXT_DOCUMENT_COMPLETION,
-        # CompletionOptions(trigger_characters=[".", ":"], resolve_provider=False),
-        CompletionOptions(trigger_characters=None, resolve_provider=False),
+        CompletionOptions(trigger_characters=[".", ":", "(", '"', "'"], resolve_provider=False),
     )
     def on_completion(ls: LanguageServer, params: types.CompletionParams):
         uri = params.text_document.uri
@@ -68,11 +71,15 @@ def register_completion(
         if not completion:
             return CompletionList(is_incomplete=False, items=[])
 
+        # Configure completion for ghost text display
         item = CompletionItem(
             label=completion.strip().splitlines()[0][:80],
             insert_text=completion,
             kind=CompletionItemKind.Text,
-            detail="AI_LSP",
+            detail="AI_LSP\n" + completion.strip(),
+            # Configure for better ghost text display
+            sort_text="000",  # High priority for ghost text
+            preselect=True,   # Make this the default selection for ghost text
         )
 
         return CompletionList(is_incomplete=False, items=[item])

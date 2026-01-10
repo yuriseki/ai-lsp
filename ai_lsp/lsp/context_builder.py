@@ -19,7 +19,7 @@ class CompletionContextBuilder:
         line_index = min(position.line, len(lines) - 1)
         full_line = lines[line_index]
 
-        char_index = min(position.line, len(full_line))
+        char_index = min(position.character, len(full_line))
         prefix = full_line[:char_index]
 
         identation = self._extract_identation(full_line)
@@ -38,7 +38,7 @@ class CompletionContextBuilder:
         )
 
     def _extract_identation(self, line: str) -> str:
-        match = re.match(r"\s", line)
+        match = re.match(r"^\s*", line)
         return match.group(0) if match else ""
 
     def _uri_to_path(self, uri: str) -> str:

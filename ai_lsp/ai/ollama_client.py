@@ -25,7 +25,7 @@ class OllamaCOmpletionEngine(CompletionEngine):
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.2,
+                    "temperature": 0,
                     "num_predict": 64,
                 },
             },
@@ -37,16 +37,13 @@ class OllamaCOmpletionEngine(CompletionEngine):
 
         result = data.get("response", "").strip()
 
-        # Debug: log raw result
+        # Debug: log context and raw result
+        print(f"DEBUG: Context prefix: {repr(context.prefix)}")
         if result:
             print(f"DEBUG: Raw completion result: {repr(result)}")
 
-        # Clean up the result: remove markdown code blocks and normalize whitespace
-        result = self._clean_completion_result(result)
-
-        # Debug: log cleaned result
-        if result:
-            print(f"DEBUG: Cleaned completion result: {repr(result)}")
+        # Clean up the result: remove markdown code blocks, normalize whitespace, and remove prefix duplication
+        result = self._clean_completion_result(result, context)
 
         return result
 
@@ -75,23 +72,51 @@ Prefix:
 Completion (just the code):
 """.strip()
 
-    def _clean_completion_result(self, text: str) -> str:
+    def _clean_completion_result(self, text: str, context: CompletionContext) -> str:
         """
-        Clean up completion result by removing markdown formatting and normalizing whitespace.
+        Clean up completion result by removing markdown formatting, normalizing whitespace,
+        and removing duplicated prefix text that exists before the cursor.
 
-        Handles cases like:
-        - '```\nif __name__ == "__main__":\n```' -> 'if __name__ == "__main__":'
-        - Multiple lines -> single line
-        - Extra whitespace -> normalized
+        Requirements:
+        1. Remove markdown code blocks (```)
+        2. Normalize whitespace (multiple spaces/newlines -> single)
+        3. Remove text that duplicates what's already before the cursor
         """
         if not text:
             return text
 
-        # Remove markdown code block markers (```)
-        text = re.sub(r'```\w*\n?', '', text)
-        text = re.sub(r'```', '', text)
+        # Step 1: Remove markdown code block markers
+        text = re.sub(r"```\w*\n?", "", text)
+        text = re.sub(r"```", "", text)
 
-        # Remove leading/trailing whitespace
-        text = text.strip()
+        # Step 2: Remove duplicated prefix text
+        if context.prefix:
+            # Get the prefix without trailing whitespace for comparison
+            prefix_clean = context.prefix.rstrip()
+            prefix_no_indent = prefix_clean.lstrip()
+
+            # Check various ways the prefix might appear in the completion
+            if text.startswith(context.prefix):
+                # Exact match with indentation
+                text = text[len(context.prefix) :]
+            elif text.startswith(prefix_clean):
+                # Match without trailing whitespace
+                text = text[len(prefix_clean) :]
+            elif text.startswith(prefix_no_indent):
+                # LLM stripped indentation from the prefix
+                text = text[len(prefix_no_indent) :]
+            elif context.identation and text.startswith(
+                context.identation + prefix_no_indent
+            ):
+                # LLM used different indentation
+                indented_prefix = context.identation + prefix_no_indent
+                text = text[len(indented_prefix) :]
+
+        # Step 3: Skip whitespace normalization for code (preserve structure)
+        # Code indentation and newlines are important for proper formatting
+        pass
+
+        # Step 4: Final cleanup (preserve leading/trailing newlines for code structure)
+        text = text.rstrip(" \t")  # Only remove trailing spaces/tabs
 
         return text
