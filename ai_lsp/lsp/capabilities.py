@@ -30,14 +30,13 @@ def make_inline_edit(
     The edit inserts text at the cursor position without deleting existing
     content.
     """
-    # start and end are the same for now.
     start = types.Position(
         line=context.line,
-        character=context.character,
+        character=len(context.prefix),
     )
     end = types.Position(
         line=context.line,
-        character=context.character,
+        character=len(context.current_line),
     )
 
     return types.TextEdit(

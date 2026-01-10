@@ -1,5 +1,6 @@
 import asyncio
 import json
+from sys import prefix
 from typing import Optional
 
 import requests
@@ -9,7 +10,7 @@ from ai_lsp.agents.context import ContextPruningAgent
 from ai_lsp.agents.guard import OutputGuardAgent
 from ai_lsp.agents.intent import CompletionIntentAgent
 from ai_lsp.ai.engine import CompletionEngine
-from ai_lsp.ai.sanitize import sanitize_completion
+from ai_lsp.ai.sanitize import sanitize_completion, strip_duplicate_prefix
 from ai_lsp.domain.completion import CompletionContext
 
 
@@ -88,7 +89,14 @@ class OllamaCompletionEngine(CompletionEngine):
                 return None
             text = result
 
-            return sanitize_completion(text).strip()
+            clean = sanitize_completion(text).strip()
+            clean = strip_duplicate_prefix(
+                current_line=context.current_line,
+                prefix=context.prefix,
+                completion=clean,
+            )
+
+            return clean.strip()
 
     def _build_prompt(self, context: CompletionContext) -> str:
         previous = "\n".join(context.previous_lines)
