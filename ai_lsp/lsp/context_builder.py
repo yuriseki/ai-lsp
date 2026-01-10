@@ -35,6 +35,8 @@ class CompletionContextBuilder:
             previous_lines=previous_lines,
             next_lines=next_lines,
             identation=identation,
+            line=position.line,
+            character=position.character,
         )
 
     def _extract_identation(self, line: str) -> str:

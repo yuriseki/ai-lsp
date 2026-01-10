@@ -20,6 +20,35 @@ import asyncio
 from typing import Dict
 
 
+def make_inline_edit(
+    context: CompletionContext,
+    completion_text: str,
+) -> types.TextEdit:
+    """
+    Create a TextEdit suitable for inline (ghost text) completion.
+
+    The edit inserts text at the cursor position without deleting existing
+    content.
+    """
+    # start and end are the same for now.
+    start = types.Position(
+        line=context.line,
+        character=context.character,
+    )
+    end = types.Position(
+        line=context.line,
+        character=context.character,
+    )
+
+    return types.TextEdit(
+        range=types.Range(
+            start=start,
+            end=end,
+        ),
+        new_text=completion_text,
+    )
+
+
 def register_capabilities(server: LanguageServer):
     documents = DocumentStore()
     context_builder = CompletionContextBuilder()
@@ -37,39 +66,6 @@ def register_documents(server: LanguageServer, documents: DocumentStore):
     @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls: LanguageServer, params: types.DidChangeTextDocumentParams):
         documents.update(params, ls)
-
-
-def _calculate_replacement_range(
-    context: CompletionContext, position: Position, completion: str
-) -> Range | None:
-    """
-    Calculate the text range that should be replaced by the completion.
-
-    This implements intelligent diffing to find how much of the completion
-    matches existing text before and after the cursor.
-    """
-    if not completion or not context.prefix:
-        return None
-
-    current_line = context.current_line
-
-    # Clean completion (remove extra whitespace)
-    completion = completion.strip()
-
-    # Simple approach: replace from start of prefix match to cursor
-    # This works well for most AI completion scenarios
-    prefix = context.prefix.rstrip()
-
-    if completion.strip().startswith(prefix.strip()):
-        # Replace from start of prefix to cursor
-        start_char = position.character - len(prefix)
-        if start_char >= 0:
-            return Range(
-                start=Position(line=position.line, character=start_char),
-                end=Position(line=position.line, character=position.character),
-            )
-
-    return None
 
 
 def register_completion(
@@ -125,30 +121,25 @@ def register_completion(
         if not completion:
             return CompletionList(is_incomplete=False, items=[])
 
-        # Calculate intelligent replacement range
-        replacement_range = _calculate_replacement_range(
-            context, params.position, completion
+        edit = types.TextEdit(
+            range=types.Range(
+                start=types.Position(line=context.line, character=len(context.prefix)),
+                end=types.Position(
+                    line=context.line,
+                    character=len(context.current_line),
+                ),
+            ),
+            new_text=completion,
         )
 
-        if replacement_range:
-            # Use textEdit for precise multi-line replacement
-            item = CompletionItem(
-                label=completion.strip().splitlines()[0][:80],
-                kind=CompletionItemKind.Text,
-                detail="AI_LSP\n" + completion.strip(),
-                sort_text="000",
-                preselect=True,
-                text_edit=TextEdit(range=replacement_range, new_text=completion),
-            )
-        else:
-            # Fallback to simple insert
-            item = CompletionItem(
-                label=completion.strip().splitlines()[0][:80],
-                insert_text=completion,
-                kind=CompletionItemKind.Text,
-                detail="AI_LSP\n" + completion.strip(),
-                sort_text="000",
-                preselect=True,
-            )
+        item = CompletionItem(
+            label=completion.strip().splitlines()[0][:80],
+            kind=CompletionItemKind.Text,
+            detail="AI_LSP\n" + completion.strip(),
+            sort_text="0", # Make it the first item.
+            preselect=True,
+            text_edit=edit,
+            insert_text_format=types.InsertTextFormat.PlainText,
+        )
 
         return CompletionList(is_incomplete=False, items=[item])

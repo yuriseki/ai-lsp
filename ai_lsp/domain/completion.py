@@ -10,3 +10,5 @@ class CompletionContext:
     previous_lines: List[str]
     next_lines: List[str]
     identation: str
+    line: int
+    character: int
