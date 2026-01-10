@@ -6,6 +6,7 @@ class CompletionContext:
     language: str
     file_path: str
     prefix: str
+    suffix: str
     current_line: str
     previous_lines: List[str]
     next_lines: List[str]

@@ -27,12 +27,14 @@ class PrefixAlignmentAgent(CompletionAgent):
         self, context: CompletionContext, completion: str
     ) -> Optional[str]:
         prefix = context.prefix or ""
+        suffix = context.suffix or ""
         current_line = context.current_line or ""
-        completion = completion or ""
+        text = completion or ""
 
+        # -- Step 1: remove prefix/line
         prefix_indent, prefix_code = _split_indent(prefix)
         line_indent, line_code = _split_indent(current_line)
-        comp_indent, comp_code = _split_indent(completion)
+        comp_indent, comp_code = _split_indent(text)
 
         prefix_norm = prefix_code.strip()
         line_norm = line_code.strip()
@@ -41,11 +43,16 @@ class PrefixAlignmentAgent(CompletionAgent):
         # Case 1: echoed prefix
         if prefix_norm and comp_norm.startswith(prefix_norm):
             remainder = comp_norm[len(prefix_norm) :].lstrip()
-            return prefix_indent + remainder
+            text = prefix_indent + remainder
 
         # Case 2: echoed whole line
         if line_norm and comp_norm.startswith(line_norm):
             remainder = comp_norm[len(line_norm) :].lstrip()
-            return line_indent + remainder
+            text = line_indent + remainder
 
-        return completion
+        # -- Step 2: remove overlapping suffix
+        suffix_norm = suffix.strip()
+        if suffix_norm and text.strip().endswith(suffix_norm):
+            text = text[: -len(suffix_norm)].rstrip()
+
+        return text

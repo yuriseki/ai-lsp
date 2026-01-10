@@ -21,6 +21,7 @@ class CompletionContextBuilder:
 
         char_index = min(position.character, len(full_line))
         prefix = full_line[:char_index]
+        suffix = full_line[char_index:]
 
         indentation = self._extract_indentation(full_line)
 
@@ -31,6 +32,7 @@ class CompletionContextBuilder:
             language=document.language_id,
             file_path=self._uri_to_path(document.uri),
             prefix=prefix,
+            suffix=suffix,
             current_line=full_line,
             previous_lines=previous_lines,
             next_lines=next_lines,
