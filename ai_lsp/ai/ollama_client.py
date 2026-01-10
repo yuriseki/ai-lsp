@@ -26,7 +26,8 @@ class OllamaCOmpletionEngine(CompletionEngine):
                 "stream": False,
                 "options": {
                     "temperature": 0,
-                    "num_predict": 64,
+                    "seed": 42,
+                    "num_predict": 640,
                 },
             },
             timeout=self.timeout,
@@ -45,6 +46,9 @@ class OllamaCOmpletionEngine(CompletionEngine):
         # Clean up the result: remove markdown code blocks, normalize whitespace, and remove prefix duplication
         result = self._clean_completion_result(result, context)
 
+        # Adjust indentation for multi-line completions
+        result = self._adjust_completion_indentation(result, context)
+
         return result
 
     def _build_prompt(self, context: CompletionContext) -> str:
@@ -54,8 +58,8 @@ class OllamaCOmpletionEngine(CompletionEngine):
 You are a code autocomplete engine.
 Return ONLY the completion text.
 No explanations. No markdown. No code blocks.
-Pure code only. Single line if possible.
-Pretend you are the developer typing directly.
+Pure code only.
+The code should be as the developer is typing directly.
 
 Language: {context.language}
 File: {context.file_path}
@@ -120,3 +124,31 @@ Completion (just the code):
         text = text.rstrip(" \t")  # Only remove trailing spaces/tabs
 
         return text
+
+    def _adjust_completion_indentation(self, text: str, context: CompletionContext) -> str:
+        """
+        Adjust indentation for multi-line completions to match the current line's indentation.
+
+        For multi-line completions, adds the current line's indentation to continuation lines.
+        """
+        if not text or '\n' not in text:
+            return text
+
+        # Get current line indentation
+        current_indent = context.identation
+
+        if not current_indent:
+            return text
+
+        # Split into lines
+        lines = text.split('\n')
+
+        # First line keeps original indentation (if any)
+        # Continuation lines get current line indentation added
+        adjusted_lines = [lines[0]]  # First line as-is
+
+        for line in lines[1:]:
+            # Add current indentation to continuation lines
+            adjusted_lines.append(current_indent + line)
+
+        return '\n'.join(adjusted_lines)

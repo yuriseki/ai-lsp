@@ -201,9 +201,16 @@ Output: ':\n    return a + b'
 
 **Processing Example:**
 ```
-Input:  'def sum(a, b):\n    return a + b'
-Prefix: '    def sum(a, b):'
-Output: '\n    return a + b'
+Input:  'def calculate(a, b):\n    return a + b'
+Prefix: 'def calculate'
+Output: Replaces 'def calculate' with full function definition
+```
+
+**TextEdit Replacement:**
+```
+Before:     def calculate|
+After:      def calculate(a, b):
+                return a + b
 ```
 
 ### Indentation Handling
@@ -216,6 +223,9 @@ The prefix removal logic intelligently handles indentation differences:
 The LSP server provides intelligent completion based on cursor context:
 - **Normal text**: Standard prefix removal and insertion
 - **Prefix deduplication**: Removes text that already exists before cursor
+- **Intelligent Replacement**: Uses `textEdit` to replace appropriate text ranges
+- **Multi-line Support**: Handles indented multi-line completions correctly
+- **Indentation Adjustment**: Automatically adjusts continuation line indentation
 - **Ghost Text Support**: Completions appear as inline faded suggestions
 - **Trigger Characters**: Auto-complete on `.`, `:`, `(`, `"`, `'`
 
