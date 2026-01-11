@@ -1,3 +1,6 @@
+import asyncio
+from typing import Dict
+
 from lsprotocol import types
 from lsprotocol.types import (
     CompletionItem,
@@ -12,12 +15,10 @@ from lsprotocol.types import (
 )
 from pygls.lsp.server import LanguageServer
 
-from ai_lsp.domain.completion import CompletionContext
 from ai_lsp.ai.ollama_client import OllamaCompletionEngine
+from ai_lsp.domain.completion import CompletionContext
 from ai_lsp.lsp.context_builder import CompletionContextBuilder
 from ai_lsp.lsp.documents import DocumentStore
-import asyncio
-from typing import Dict
 
 
 def make_inline_edit(

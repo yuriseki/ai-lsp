@@ -9,13 +9,14 @@ This document provides comprehensive guidelines for development in the AI LSP pr
 3. [Test Commands](#test-commands)
 4. [Lint and Format Commands](#lint-and-format-commands)
 5. [Code Style Guidelines](#code-style-guidelines)
-6. [Architecture Guidelines](#architecture-guidelines)
-7. [Import Organization](#import-organization)
-8. [Error Handling](#error-handling)
-9. [Type Hints](#type-hints)
-10. [Naming Conventions](#naming-conventions)
-11. [Documentation Standards](#documentation-standards)
-12. [Commit Message Guidelines](#commit-message-guidelines)
+6. [Context Building](#context-building)
+7. [Architecture Guidelines](#architecture-guidelines)
+8. [Import Organization](#import-organization)
+9. [Error Handling](#error-handling)
+10. [Type Hints](#type-hints)
+11. [Naming Conventions](#naming-conventions)
+12. [Documentation Standards](#documentation-standards)
+13. [Commit Message Guidelines](#commit-message-guidelines)
 
 ## Development Environment Setup
 
@@ -279,6 +280,30 @@ python dev_server.py --debug
 - 📊 Shows LSP server output
 - 🛑 Graceful shutdown with Ctrl+C
 
+## Context Building
+
+The LSP server includes a sophisticated context building system that extracts relevant code context for AI completion requests.
+
+### CompletionContextBuilder
+
+The `CompletionContextBuilder` analyzes the document at the cursor position and builds a comprehensive `CompletionContext` that includes:
+
+- **Language identification**: Programming language of the current file
+- **File path**: Absolute path to the source file
+- **Prefix/Suffix**: Text before and after cursor on current line
+- **Current line**: Complete line containing the cursor
+- **Previous/Next lines**: Surrounding code context (configurable max lines)
+- **Indentation**: Current line indentation level
+- **Position information**: Line and character coordinates
+
+### Context Usage
+
+The completion context is used by agents to:
+- Determine completion intent and relevance
+- Provide surrounding code for AI prompts
+- Handle indentation and formatting
+- Remove duplicate text overlaps
+
 ## Code Style Guidelines
 
 ### Python Standards
@@ -341,7 +366,8 @@ ai_lsp/
 │   │   ├── __init__.py
 │   │   ├── server.py         # pygls setup
 │   │   ├── capabilities.py   # LSP handlers
-│   │   └── documents.py      # Text tracking
+│   │   ├── documents.py      # Text tracking
+│   │   └── context_builder.py # Context building utilities
 │   ├── domain/               # Business logic layer
 │   │   ├── __init__.py
 │   │   ├── completion.py     # Completion models
@@ -349,17 +375,24 @@ ai_lsp/
 │   ├── agents/               # Reasoning agents layer
 │   │   ├── __init__.py
 │   │   ├── base.py           # Agent interfaces
-│   │   ├── completion_agent.py
-│   │   └── context_agent.py
+│   │   ├── completion_agent.py # Main completion agent
+│   │   ├── range_alignment.py # Range alignment agent
+│   │   ├── intent.py         # Completion intent agent
+│   │   ├── guard.py          # Output guard agent
+│   │   └── context.py        # Context agent
 │   └── ai/                   # AI integration layer
 │       ├── __init__.py
 │       ├── engine.py         # AI interface/port
 │       ├── ollama_client.py  # Ollama adapter
+│       ├── sanitize.py       # Completion sanitization
 │       └── prompts/          # Prompt templates
 │           └── completion.md
+├── tests/                   # Test suite
+│   └── agents/              # Agent tests
 ├── pyproject.toml           # Project configuration
 ├── README.md               # Project documentation
 ├── AGENTS.md              # Development guidelines
+├── dev_server.py          # Development server with auto-reload
 └── poetry.lock            # Dependency lock file
 ```
 
@@ -375,19 +408,48 @@ This project follows clean architecture principles with strict separation of con
 4. **Domain models are pure**: No external dependencies in domain layer
 5. **Dependencies flow inward**: Outer layers depend on inner layers, never vice versa
 
+### Agent System
+
+The AI LSP uses a sophisticated agent system with three phases of completion processing:
+
+1. **Before Generation**: Agents can modify prompts, block generation, or provide reasoning
+2. **During Generation**: Agents monitor token output in real-time for safety/quality control
+3. **After Generation**: Agents post-process completions (sanitization, alignment, etc.)
+
+#### Agent Interface
+
+```python
+class CompletionAgent(ABC):
+    def before_generation(self, context: CompletionContext) -> AgentDecision:
+        """Decide whether to allow generation and optionally modify the prompt."""
+        return AgentDecision()
+
+    def on_token(self, token: str) -> Optional[AgentDecision]:
+        """Monitor token generation in real-time. Return decision to stop if needed."""
+        return None
+
+    def after_generation(self, context: CompletionContext, completion: str) -> Optional[str]:
+        """Post-process the generated completion."""
+        return completion
+```
+
+#### Available Agents
+
+- **CompletionIntentAgent**: Blocks generation for insufficient context (short prefixes, numeric-only)
+- **OutputGuardAgent**: Stops generation when detecting code fences in output
+- **RangeAlignmentAgent**: Removes prefix/suffix overlaps and handles indentation alignment
+- **ContextAgent**: (Future) Provides contextual reasoning for completion strategies
+
 ### Component Design
 
 ```python
 # Good: Clear separation, single responsibility
-class CompletionAgent:
-    """Handles completion logic and decision making."""
+class RangeAlignmentAgent(CompletionAgent):
+    """Handles completion text alignment and overlap removal."""
 
-    def __init__(self, ai_engine: AIEngine):
-        self.ai_engine = ai_engine
-
-    def get_completions(self, context: CompletionContext) -> List[CompletionItem]:
-        """Get completion suggestions for given context."""
-        # Agent logic here
+    def after_generation(self, context: CompletionContext, completion: str) -> Optional[str]:
+        # Remove duplicated prefix/current line from LLM output
+        # Preserve indentation and handle multiline completions
         pass
 
 # Bad: Mixed responsibilities, tight coupling
@@ -776,87 +838,13 @@ The import was incorrectly referencing a non-existent module.
 
 ## Tool Configurations
 
-### Black Configuration
-```ini
-# pyproject.toml
-[tool.black]
-line-length = 88
-target-version = ['py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-```
+The project uses standard configurations for code quality tools. The tools are available globally and use their default settings:
 
-### isort Configuration
-```ini
-# pyproject.toml
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 88
-known_first_party = ["ai_lsp"]
-```
+- **Black**: Code formatting with 88 character line length
+- **isort**: Import sorting compatible with Black
+- **mypy**: Type checking with strict settings
+- **Ruff**: Fast linting with comprehensive rule set
 
-### mypy Configuration
-```ini
-# pyproject.toml
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = "lsprotocol.*"
-ignore_missing_imports = true
-```
-
-### Ruff Configuration
-```ini
-# pyproject.toml
-[tool.ruff]
-line-length = 88
-target-version = "py312"
-
-[tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
-]
-ignore = [
-    "E501", # line too long (handled by black)
-    "B008", # do not perform function calls in argument defaults
-    "C901", # too complex
-]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"tests/**/*" = ["B011"]  # assert false
-```
+For specific configuration needs, add tool configurations to `pyproject.toml` as needed.
 
 This comprehensive guide ensures consistent, maintainable, and high-quality code across the AI LSP project. Follow these guidelines to maintain the clean architecture and development standards established for this codebase.

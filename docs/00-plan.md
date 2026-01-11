@@ -292,46 +292,256 @@ Later:
 
 ---
 
-## PHASE 7 – Performance & sanity checks
+# 🧠 Phase 7 – Advanced Context Agents (Prefix + Suffix Intelligence)
 
-LLMs are slow. LSPs must be fast.
+### Goal
 
-You’ll eventually add:
-
-* request cancellation
-* caching last result
-* background prefetch
-* streaming (optional)
-
-But **only after correctness**.
+Move from “string completion” to **context-aware intent inference** using both sides of the cursor.
 
 ---
 
-## 4. What I propose next (concrete steps)
+## 7.1 Cursor-Window Agent
 
-If you’re good with this plan, I suggest:
+**Purpose**
+Understand *what kind of edit is happening*.
 
-### 👉 NEXT STEP
+### Inputs
 
-**Phase 1 implementation:**
+* `prefix`
+* `suffix`
+* `current_line`
+* cursor position
 
-* Minimal pygls server
-* `textDocument/completion`
-* Hardcoded suggestions
-* Neovim config snippet
+### Outputs
 
-No AI yet. No agents yet. Just the spine.
+A structured intent hint:
 
-From there we iterate *exactly* like you prefer:
+```python
+EditIntent(
+    type="argument_completion" | "block_completion" | "inline_refactor" | "docstring" | ...
+    confidence=0.0–1.0
+)
+```
 
-* scaffold first
-* responsibility boundaries clear
-* implementations only when requested
+### Examples
 
-Just say:
+| Cursor             | Intent   |                     |
+| ------------------ | -------- | ------------------- |
+| `foo(              | bar)`    | argument_completion |
+| `def f():\n        | `        | block_completion    |
+| `class A:\n    """ | """`     | docstring           |
+| `$this->           | service` | symbol_completion   |
 
-> “Let’s build Phase 1”
-> or
-> “Zoom into agent design first”
+This agent does **no generation** — only classification.
 
-And we’re off 🚀
+---
+
+## 7.2 Prefix Semantic Agent
+
+**Purpose**
+Extract *semantic signals* from text **before** the cursor.
+
+### Signals
+
+* variable names
+* return types (heuristic)
+* framework hints (Drupal, Symfony, Laravel)
+* language idioms
+
+Example output:
+
+```python
+PrefixSemantics(
+    variables=["$a", "$node"],
+    framework="drupal",
+    scope="method",
+)
+```
+
+---
+
+## 7.3 Suffix Constraint Agent
+
+**Purpose**
+Understand *constraints imposed by suffix text*.
+
+### Examples
+
+| Suffix | Constraint              |
+| ------ | ----------------------- |
+| `)`    | must close expression   |
+| `];`   | must return array item  |
+| `,`    | must return expression  |
+| `:`    | likely typing type hint |
+
+This agent prevents illegal completions *before* the LLM runs.
+
+---
+
+# 📚 Phase 8 – RAG for Code Intelligence (Non-Intrusive)
+
+### Core principle
+
+> **RAG informs, it does not speak.**
+
+RAG never injects text directly — it **feeds agents and prompts**.
+
+---
+
+## 8.1 RAG Sources (incremental)
+
+Start with **local-only**, deterministic sources:
+
+1. Project codebase
+2. Composer / package metadata
+3. Framework docs (Drupal APIs)
+4. User-defined snippets
+
+---
+
+## 8.2 Dual-Index Design (important)
+
+| Index           | Used for                 |
+| --------------- | ------------------------ |
+| Symbol Index    | autocomplete, signatures |
+| Knowledge Index | explanations, refactors  |
+
+This prevents “documentation spam” in completions.
+
+---
+
+## 8.3 Retrieval Agent
+
+**Inputs**
+
+* EditIntent
+* PrefixSemantics
+* File path
+* Language
+
+**Output**
+Curated context chunks:
+
+```python
+RetrievedContext(
+    symbols=[...],
+    examples=[...],
+    best_practices=[...],
+)
+```
+
+---
+
+# ✍️ Phase 9 – Task Agents (Beyond Completion)
+
+These are **explicit actions**, not implicit autocomplete.
+
+---
+
+## 9.1 Docstring Agent
+
+### Trigger
+
+* Cursor inside empty docstring
+* Or command: `:AIDocstring`
+
+### Behavior
+
+* Generate docstring
+* Use existing function signature
+* Respect language style
+
+This uses **replace-range**, not insert.
+
+---
+
+## 9.2 Warning Fix Agent (LSP-Aware)
+
+### Example (Drupal DI)
+
+Detect pattern:
+
+```php
+\Drupal::service('foo')
+```
+
+Offer:
+
+```php
+// Replace with injected service
+```
+
+This agent:
+
+* Reads diagnostics from other LSPs
+* Produces a **code action**, not a completion
+
+---
+
+## 9.3 Refactor Micro-Agent
+
+Small, safe transformations:
+
+* extract variable
+* inline variable
+* rename local symbol
+
+No AST rewriting yet — string-safe scope only.
+
+---
+
+# 🧩 Phase 10 – Agent Orchestration Layer
+
+Now agents start collaborating.
+
+### Pipeline example
+
+```
+Intent → Semantics → Constraints → RAG → CompletionAgent → AlignmentAgent
+```
+
+Key idea:
+
+* Agents **vote**
+* Engine merges decisions
+* LLM is the *last resort*, not the first
+
+---
+
+# 🔁 Phase 11 – Feedback + Memory Loop (Local-First)
+
+### Capture signals
+
+* accepted completions
+* rejected completions
+* manual edits after insert
+
+### Store
+
+* lightweight embeddings
+* per-project preferences
+* per-language patterns
+
+This feeds:
+
+* RAG ranking
+* prompt shaping
+* agent confidence
+
+No cloud required.
+
+---
+
+# 🧪 Phase 12 – Safety, Determinism, and Trust
+
+Because developers *hate surprises*.
+
+### Add:
+
+* deterministic mode
+* max edit size limits
+* agent confidence gating
+* visible intent (“why did it do this?”)
+
+---
+
