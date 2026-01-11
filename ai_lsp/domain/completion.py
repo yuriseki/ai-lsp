@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
-from ai_lsp.agents.intent_types import EditIntentType
+from ai_lsp.agents.intent_types import EditIntent, EditIntentType
+from ai_lsp.domain.semantics import PrefixSemantics
 
 @dataclass
 class CompletionContext:
@@ -15,4 +16,5 @@ class CompletionContext:
     indentation: str
     line: int
     character: int
-    intent: str = EditIntentType.UNKNOW
+    intent: Optional[EditIntent] = None
+    semantics: Optional[PrefixSemantics] = None

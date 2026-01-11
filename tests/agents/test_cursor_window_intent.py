@@ -1,4 +1,5 @@
 import pytest
+from ai_lsp.agents import semantics
 from ai_lsp.agents.intent import CursorWindowIntentAgent
 from ai_lsp.agents.intent_types import EditIntentType
 from ai_lsp.agents.range_alignment import RangeAlignmentAgent
