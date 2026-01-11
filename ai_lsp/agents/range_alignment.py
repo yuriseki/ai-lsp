@@ -48,8 +48,38 @@ def _trim_trailing_line_overlap(
         skipping = False
         result.append(line)
 
+    result.reverse()
+
     return result
 
+
+def _trim_suffix_overlap(completion: str, suffix: str) -> str:
+    if not suffix or not completion:
+        return completion
+
+    max_overlap = min(len(completion), len(suffix))
+
+    for i in range(max_overlap, 0, -1):
+        if completion.endswith(suffix[:i]):
+            return completion[:-i]
+
+    return completion
+
+
+def _trim_multiline_suffix_overlap(
+    completion_lines: list[str],
+    suffix: str,
+) -> list[str]:
+    if not suffix or not completion_lines:
+        return completion_lines
+
+    last = completion_lines[-1]
+    trimmed = _trim_suffix_overlap(last, suffix)
+
+    if trimmed != last:
+        return completion_lines[:-1] + [trimmed]
+
+    return completion_lines
 
 
 class RangeAlignmentAgent(CompletionAgent):
@@ -101,6 +131,11 @@ class RangeAlignmentAgent(CompletionAgent):
         completion_lines = text.splitlines()
         if len(completion_lines) > 1 and next_lines:
             text = _trim_trailing_line_overlap(completion_lines, next_lines)
+            text = "\n".join(text)
+
+        completion_lines = text.splitlines()
+        if len(completion_lines) > 0 and suffix:
+            text = _trim_multiline_suffix_overlap(completion_lines, suffix)
             text = "\n".join(text)
 
         return text

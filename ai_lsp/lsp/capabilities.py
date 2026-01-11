@@ -122,10 +122,10 @@ def register_completion(
 
         edit = types.TextEdit(
             range=types.Range(
-                start=types.Position(line=context.line, character=len(context.prefix)),
+                start=types.Position(line=context.line, character=context.character),
                 end=types.Position(
                     line=context.line,
-                    character=len(context.current_line),
+                    character=context.character,
                 ),
             ),
             new_text=completion,

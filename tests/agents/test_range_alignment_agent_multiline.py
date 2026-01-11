@@ -72,6 +72,3 @@ def test_multiline_partial_overlap():
     result = agent.after_generation(context, completion)
 
     assert result == ""
-
-
-
