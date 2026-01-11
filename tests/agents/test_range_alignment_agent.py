@@ -1,5 +1,5 @@
 import pytest
-from ai_lsp.agents.prefix_alignment import PrefixAlignmentAgent
+from ai_lsp.agents.range_alignment import RangeAlignmentAgent
 from ai_lsp.domain.completion import CompletionContext
 
 
@@ -24,7 +24,7 @@ def make_context(
 
 
 def test_removes_duplicated_prefix():
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix="    $a = ",
@@ -39,7 +39,7 @@ def test_removes_duplicated_prefix():
 
 
 def test_removes_duplicated_full_line():
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix="    $a = ",
@@ -54,7 +54,7 @@ def test_removes_duplicated_full_line():
 
 
 def test_preserves_indentation():
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix="        $a = ",
@@ -70,7 +70,7 @@ def test_preserves_indentation():
 
 
 def test_removes_suffix_overlap():
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix="print(",
@@ -86,7 +86,7 @@ def test_removes_suffix_overlap():
 
 
 def test_no_overlap_returns_completion():
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix="$a = ",
@@ -110,7 +110,7 @@ def test_no_overlap_returns_completion():
     ],
 )
 def test_defensive_cases(prefix, suffix, completion):
-    agent = PrefixAlignmentAgent()
+    agent = RangeAlignmentAgent()
 
     context = make_context(
         prefix=prefix,
