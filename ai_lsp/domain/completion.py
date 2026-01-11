@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import List
 
+from ai_lsp.agents.intent_types import EditIntentType
+
 @dataclass
 class CompletionContext:
     language: str
@@ -13,3 +15,4 @@ class CompletionContext:
     indentation: str
     line: int
     character: int
+    intent: str = EditIntentType.UNKNOW

@@ -7,7 +7,7 @@ import requests
 from ai_lsp.agents.base import CompletionAgent
 from ai_lsp.agents.context import ContextPruningAgent
 from ai_lsp.agents.guard import OutputGuardAgent
-from ai_lsp.agents.intent import CompletionIntentAgent
+from ai_lsp.agents.intent import CompletionIntentAgent, CursorWindowIntentAgent
 from ai_lsp.agents.range_alignment import RangeAlignmentAgent
 from ai_lsp.ai.engine import CompletionEngine
 from ai_lsp.ai.sanitize import sanitize_completion
@@ -33,8 +33,12 @@ class OllamaCompletionEngine(CompletionEngine):
             OutputGuardAgent(),
         ]
 
+        self.intent_agent = CursorWindowIntentAgent
+
     async def complete(self, context: CompletionContext) -> Optional[str]:
         for agent in self.agents:
+            intent = self.intent_agent.detect_intent(context)
+            context.in
             decision = agent.before_generation(context)
             if not decision.allowed:
                 return None
