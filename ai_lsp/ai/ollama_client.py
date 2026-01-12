@@ -10,9 +10,11 @@ from ai_lsp.agents.guard import OutputGuardAgent
 from ai_lsp.agents.intent import CompletionIntentAgent, CursorWindowIntentAgent
 from ai_lsp.agents.range_alignment import RangeAlignmentAgent
 from ai_lsp.agents.semantics import PrefixSemanticAgent
+from ai_lsp.ai.constraints import merge_suffix_constraints
 from ai_lsp.ai.engine import CompletionEngine
 from ai_lsp.ai.sanitize import sanitize_completion
 from ai_lsp.domain.completion import CompletionContext
+from ai_lsp.domain.constraints import SuffixConstraints
 
 
 class OllamaCompletionEngine(CompletionEngine):
@@ -38,7 +40,16 @@ class OllamaCompletionEngine(CompletionEngine):
         self.prefix_semantic_agent = PrefixSemanticAgent()
 
     async def complete(self, context: CompletionContext) -> Optional[str]:
+        constraints = []
+
         for agent in self.agents:
+            if hasattr(agent, "analyze"):
+                constraints.append(agent.analyze(context)) # pyright: ignore
+
+            decision = agent.before_generation(context)
+            if not decision.allowed:
+                return None
+
             context.intent = self.intent_agent.detect_intent(context)
             context.semantics = self.prefix_semantic_agent.analyze(context)
 
@@ -46,10 +57,25 @@ class OllamaCompletionEngine(CompletionEngine):
             if not decision.allowed:
                 return None
 
-        return await asyncio.to_thread(self._blocking_complete, context)
+        merged_constraints = merge_suffix_constraints(constraints)
 
-    def _blocking_complete(self, context: CompletionContext) -> Optional[str]:
+        return await asyncio.to_thread(
+            self._blocking_complete,
+            context,
+            merged_constraints
+        )
+
+    def _blocking_complete(self, context: CompletionContext, constraints: SuffixConstraints) -> Optional[str]:
         prompt = self._build_prompt(context)
+
+        options = {
+            "temperature": 0,
+            "seed": 42,
+            "num_predict": 128,
+        }
+
+        if constraints.stop_sequences:
+            options["stop"] = constraints.stop_sequences
 
         response = requests.post(
             f"{self.base_url}/api/generate",
@@ -57,11 +83,7 @@ class OllamaCompletionEngine(CompletionEngine):
                 "model": self.model,
                 "prompt": prompt,
                 "stream": True,
-                "options": {
-                    "temperature": 0,
-                    "seed": 42,
-                    "num_predict": 128,
-                },
+                "options": options,
             },
             stream=True,
             timeout=self.timeout,

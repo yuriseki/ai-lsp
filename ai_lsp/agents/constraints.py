@@ -38,11 +38,19 @@ class SuffixConstraintAgent(CompletionAgent):
         forbidden_newlines = _forbidden_newlines(context)
         must_not_repeat = _extract_leading_tokens(context)
 
+        stop_sequences = []
+
+        stop_sequences.extend(must_not_repeat)
+
+        if forbidden_newlines:
+            stop_sequences.append("\n")
+
         confidence = 0.9 if context.suffix.strip() else 0.5
 
         return SuffixConstraints(
             must_not_repeat=must_not_repeat,
             must_close=must_close,
             forbidden_newlines=forbidden_newlines,
+            stop_sequences=stop_sequences,
             confidence=confidence,
         )
