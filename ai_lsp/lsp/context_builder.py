@@ -33,6 +33,7 @@ class CompletionContextBuilder:
             file_path=self._uri_to_path(document.uri),
             prefix=prefix,
             suffix=suffix,
+            completion_prefix=self._extract_completion_prefix(prefix),
             current_line=full_line,
             previous_lines=previous_lines,
             next_lines=next_lines,
@@ -50,3 +51,7 @@ class CompletionContextBuilder:
             return uri.replace("file://", "")
 
         return uri
+
+    def _extract_completion_prefix(self, line_prefix: str) -> str:
+        match = re.search(r"[A-Za-z0-9_]+$", line_prefix)
+        return match.group(0) if match else ""

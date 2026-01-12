@@ -33,11 +33,11 @@ def make_inline_edit(
     """
     start = types.Position(
         line=context.line,
-        character=len(context.prefix),
+        character=context.character - len(context.completion_prefix),
     )
     end = types.Position(
         line=context.line,
-        character=len(context.current_line),
+        character=context.character,
     )
 
     return types.TextEdit(
@@ -121,16 +121,7 @@ def register_completion(
         if not completion:
             return CompletionList(is_incomplete=False, items=[])
 
-        edit = types.TextEdit(
-            range=types.Range(
-                start=types.Position(line=context.line, character=context.character),
-                end=types.Position(
-                    line=context.line,
-                    character=context.character,
-                ),
-            ),
-            new_text=completion,
-        )
+        edit = make_inline_edit(context, completion)
 
         item = CompletionItem(
             label=completion.strip().splitlines()[0][:80],

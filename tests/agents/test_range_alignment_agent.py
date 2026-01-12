@@ -14,6 +14,7 @@ def make_context(
         file_path="test.php",
         prefix=prefix,
         suffix=suffix,
+        completion_prefix="",
         current_line=current_line,
         previous_lines=[],
         next_lines=[],
